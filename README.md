@@ -63,7 +63,8 @@ ngrok http 5000
 
 3. Start the server:
 ```bash
-python main.py
+python main.py 
+or python wsgi.py
 ```
 
 4. Test the application by making a curl request:
