@@ -12,20 +12,34 @@ logger = get_logger(__name__)
 class UltravoxService:
     def __init__(self):
         self.api_key = settings.ULTRAVOX_API_KEY
-        self.api_url = "https://api.ultravox.ai/api/calls"  # Fixed API URL
+        self.api_url = "https://api.ultravox.ai/api/calls"
         self.headers = {
             "Content-Type": "application/json",
             "X-API-Key": self.api_key,
         }
+        logger.info(f"Initialized UltravoxService with API URL: {self.api_url}")
 
-    def create_call(self):
+    def create_call(self, to_number=None):
         """Creates a call in Ultravox and returns the JSON containing joinUrl."""
-        config = {
+        # Use provided to_number or fall back to settings
+        target_number = settings.TO_NUMBER
+        
+        if not target_number:
+            logger.error("No target phone number provided")
+            raise ValueError("No target phone number provided (TO_NUMBER)")
+            
+        logger.info(f"Creating Ultravox call to number: {target_number}")
+        
+        # Prepare webhook URL for Ultravox to call back
+        webhook_url = f"{settings.BASE_URL}/webhook"
+        
+      
+        payload = {
         "systemPrompt": settings.SYSTEM_PROMPT,
         "temperature": 0.7,
-        "model": "fixie-ai/ultravox-70B",
-        "voice": "Mark",
-        "languageHint": "en-US",
+        "model": settings.AI_MODEL,
+        "voice": settings.VOICE_NAME,
+        "languageHint": settings.LANGUAGE_HINT,
         "initialMessages": [
             {
                 "role": "MESSAGE_ROLE_USER",
@@ -75,39 +89,51 @@ class UltravoxService:
         "metadata": {},
         "initialState": {},
     }
+        headers = {
+            "X-API-Key": settings.ULTRAVOX_API_KEY,
+            "Content-Type": "application/json"
+            }
+        
+        logger.info(f"Creating Ultravox call with payload: {json.dumps(payload, indent=2)}")
         
         try:
-            logger.info(f"Creating Ultravox call with config: {json.dumps(config, indent=2)}")
-            response = requests.post(
-                self.api_url,
-                headers=self.headers,
-                json=config
+            response = httpx.post(
+                
+                "https://api.ultravox.ai/api/calls", 
+                headers=headers, 
+                json=payload,
+                
             )
-            
-            if not response.ok:
-                logger.error(f"Ultravox API error: {response.status_code}")
-                logger.error(f"Response content: {response.text}")
-                response.raise_for_status()
-            
+            response.raise_for_status()
             result = response.json()
-            logger.info(f"Successfully created call: {json.dumps(result, indent=2)}")
+            logger.info(f"Ultravox call created successfully with ID: {result.get('id', 'unknown')}")
+            logger.debug(f"Full Ultravox response: {json.dumps(result, indent=2)}")
             return result
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error creating call: {str(e)}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"Response content: {e.response.text}")
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error creating Ultravox call: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                logger.error(f"Response status: {e.response.status_code}")
+                logger.error(f"Response body: {e.response.text}")
+            raise
+            
+        except Exception as e:
+            logger.error(f"Error creating Ultravox call: {str(e)}")
             raise
 
     async def get_call(self, call_id: str) -> Dict[str, Any]:
         """Get details of a specific call."""
         try:
             url = f"{self.api_url}/{call_id}"
+            logger.info(f"Fetching call details for ID: {call_id}")
             
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=self.headers)
                 response.raise_for_status()
-                return response.json()
+                result = response.json()
+                logger.info(f"Successfully retrieved details for call: {call_id}")
+                logger.debug(f"Call details: {json.dumps(result, indent=2)}")
+                return result
                 
         except Exception as e:
             logger.error(f"Error getting call {call_id}: {str(e)}")
@@ -117,11 +143,15 @@ class UltravoxService:
         """List all calls."""
         try:
             url = f"{self.api_url}"
+            logger.info("Fetching list of all calls")
             
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=self.headers)
-                #response.raise_for_status()
-                return response.json()
+                response.raise_for_status()
+                result = response.json()
+                call_count = len(result)
+                logger.info(f"Successfully retrieved {call_count} calls")
+                return result
                 
         except Exception as e:
             logger.error(f"Error listing calls: {str(e)}")

@@ -1,13 +1,14 @@
 import os
 from pydantic_settings import BaseSettings # type: ignore
 from dotenv import load_dotenv # type: ignore
-from typing import Optional
+from typing import Optional, List, Dict, Any
+import json
 
 load_dotenv()
 
 class Settings(BaseSettings):
     # Application settings
-    APP_NAME: str = "Voice Agent API"
+    APP_NAME: str = os.getenv("APP_NAME", "Voice Agent API")
     API_V1_STR: str = "/api/v1"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
@@ -18,15 +19,20 @@ class Settings(BaseSettings):
     PLIVO_AUTH_ID: str = os.getenv("PLIVO_AUTH_ID", "")
     PLIVO_AUTH_TOKEN: str = os.getenv("PLIVO_AUTH_TOKEN", "")
     PLIVO_PHONE_NUMBER: str = os.getenv("PLIVO_PHONE_NUMBER", "")
+    
+    # Dynamic TO_NUMBER handling
     TO_NUMBER: str = os.getenv("TO_NUMBER", "")
+    
     # UltraVox settings
     ULTRAVOX_API_KEY: str = os.getenv("ULTRAVOX_API_KEY", "")
     ULTRAVOX_PHONE_NUMBER: Optional[str] = os.getenv("ULTRAVOX_PHONE_NUMBER", None)
     
-    #Base URL
-    BASE_URL: str = os.getenv("BASE_URL", "")  # Replace with your new URL
+    # Base URL (for webhooks)
+    BASE_URL: str = os.getenv("BASE_URL", "")
     
-    SYSTEM_PROMPT: str = """
+    # Voice settings
+    SYSTEM_PROMPT: str = os.getenv("SYSTEM_PROMPT", """# EMS Xperience Voice Assistant
+
 You are Aiden, an engaging AI assistant for EMS Xperience having phone conversations with potential and existing clients. Your personality is warm, knowledgeable, and enthusiastic about EMS training.
 
 ## Core Behaviors
@@ -180,14 +186,44 @@ Make it a proper prompt like structure,The below is the example prompt format
     - If the user seems quiet, gently prompt them
     - Handle any topic naturally, from casual chat to specific questions
     - End each response with something that invites further conversation
-    - If they ask you to stop please stop, Ask them Apologise.
+    
     Example conversation style:
     User: "I had a busy day at work"
-    You: "That sounds intense! What made it particularly busy today? I'd love to hear more about it."""
-    ULTRAVOX_API_URL: str = "https://api.ultravox.ai/api/calls"
+    You: "That sounds intense! What made it particularly busy today? I'd love to hear more about it.""")
+
+    VOICE_NAME: str = os.getenv("VOICE_NAME", "Anika-English-Indian")
+    LANGUAGE_HINT: str = os.getenv("LANGUAGE_HINT", "en-US")
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Call settings
+    MAX_CALL_DURATION: str = os.getenv("MAX_CALL_DURATION", "300s")
+    JOIN_TIMEOUT: str = os.getenv("JOIN_TIMEOUT", "30s")
+    TIME_EXCEEDED_MESSAGE: str = os.getenv("TIME_EXCEEDED_MESSAGE", "Sorry, The Call Time Limit Exceeded. Goodbye!")
+    
+    # Inactivity settings
+    INACTIVITY_DURATION: str = os.getenv("INACTIVITY_DURATION", "20s")
+    INACTIVITY_MESSAGE: str = os.getenv("INACTIVITY_MESSAGE", "Inactivity Detected. Goodbye!")
+    
+    # AI model settings
+    AI_MODEL: str = os.getenv("AI_MODEL", "fixie-ai/ultravox-70B")
+    AI_TEMPERATURE: float = float(os.getenv("AI_TEMPERATURE", "0.7"))
+    
+    # Response templates
+    def get_response_templates(self) -> Dict[str, str]:
+        """Get response templates from env or use defaults"""
+        templates_str = os.getenv("RESPONSE_TEMPLATES", "")
+        if templates_str:
+            try:
+                return json.loads(templates_str)
+            except json.JSONDecodeError:
+                pass
+                
+        # Default templates
+        return {
+            "greeting": "Hello there! How can I help you today?",
+            "weather": "I'm sorry, I don't have access to weather information yet.",
+            "name": "My name is Steve, your AI assistant.",
+            "goodbye": "Goodbye! Have a great day!",
+            "default": "I heard you say: {text}. How can I help with that?"
+        }
 
 settings = Settings() 

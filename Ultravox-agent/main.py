@@ -20,7 +20,7 @@ if __name__ == "__main__":
 """curl -X POST http://localhost:8000/api/v1/ultravox/calls \
 -H "Content-Type: application/json" \
 -d '{
-    "to_number": "+919566848434",
+    "to_number": "+918270852018",
     "system_prompt": "You are a helpful assistant",
     "inactivity_messages": ["Are you still there?"],
     "initial_messages": ["Hello! How can I help you today?"]
